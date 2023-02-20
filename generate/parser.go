@@ -225,30 +225,37 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 						parameters = append(parameters, renderStruct(member))
 					}
 				} else {
+					add := func(name string) {
+						reqRef := fmt.Sprintf("#/definitions/%s", name)
 
-					reqRef := fmt.Sprintf("#/definitions/%s", route.RequestType.Name())
+						if len(route.RequestType.Name()) > 0 {
+							schema := swaggerSchemaObject{
+								schemaCore: schemaCore{
+									Ref: reqRef,
+								},
+							}
 
-					if len(route.RequestType.Name()) > 0 {
-						schema := swaggerSchemaObject{
-							schemaCore: schemaCore{
-								Ref: reqRef,
-							},
+							parameter := swaggerParameterObject{
+								Name:     "body",
+								In:       "body",
+								Required: true,
+								Schema:   &schema,
+							}
+							doc := strings.Join(route.RequestType.Documents(), ",")
+							doc = strings.Replace(doc, "//", "", -1)
+
+							if doc != "" {
+								parameter.Description = doc
+							}
+							parameters = append(parameters, parameter)
 						}
-
-						parameter := swaggerParameterObject{
-							Name:     "body",
-							In:       "body",
-							Required: true,
-							Schema:   &schema,
+					}
+					if embedStruct, isEmbed := route.RequestType.(spec.DefineStruct); isEmbed {
+						for _, m := range embedStruct.Members {
+							add(m.Type.Name())
 						}
-						doc := strings.Join(route.RequestType.Documents(), ",")
-						doc = strings.Replace(doc, "//", "", -1)
-
-						if doc != "" {
-							parameter.Description = doc
-						}
-
-						parameters = append(parameters, parameter)
+					} else {
+						add(route.RequestType.Name())
 					}
 				}
 			}
