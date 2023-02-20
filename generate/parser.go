@@ -250,12 +250,14 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 							parameters = append(parameters, parameter)
 						}
 					}
-					if embedStruct, isEmbed := route.RequestType.(spec.DefineStruct); isEmbed {
-						for _, m := range embedStruct.Members {
-							add(m.Type.Name())
+					for _, member := range defineStruct.Members {
+						if embedStruct, isEmbed := member.Type.(spec.DefineStruct); isEmbed {
+							for _, m := range embedStruct.Members {
+								add(m.Type.Name())
+							}
+							continue
 						}
-					} else {
-						add(route.RequestType.Name())
+						parameters = append(parameters, renderStruct(member, true))
 					}
 				}
 			}
@@ -386,7 +388,7 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 	}
 }
 
-func renderStruct(member spec.Member) swaggerParameterObject {
+func renderStruct(member spec.Member, isBody ...bool) swaggerParameterObject {
 	tempKind := swaggerMapTypes[strings.Replace(member.Type.Name(), "[]", "", -1)]
 
 	ftype, format, ok := primitiveSchema(tempKind, member.Type.Name())
@@ -394,7 +396,11 @@ func renderStruct(member spec.Member) swaggerParameterObject {
 		ftype = tempKind.String()
 		format = "UNKNOWN"
 	}
-	sp := swaggerParameterObject{In: "query", Type: ftype, Format: format}
+	in := "query"
+	if len(isBody) != 0 && isBody[0] {
+		in = "body"
+	}
+	sp := swaggerParameterObject{In: in, Type: ftype, Format: format}
 
 	for _, tag := range member.Tags() {
 		sp.Name = tag.Name
